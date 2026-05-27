@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Player, LineupSlot } from './types';
-import { fetchAllPlayers } from './api';
-import { Shirt, Handshake, Dumbbell, Swords, Trophy, Activity, Coins, Users } from 'lucide-react';
+import { fetchAllPlayers, loginUser, registerUser, syncUserState, setActiveUsername } from './api';
+import { Shirt, Handshake, Dumbbell, Swords, Trophy, Activity, Coins, Users, LogOut, User } from 'lucide-react';
 import DraftMarket from './components/DraftMarket';
 import PlayerCard from './components/PlayerCard';
 import TacticalPitch, { getFormationSlots } from './components/TacticalPitch';
@@ -20,6 +20,15 @@ const RARITY_COST: Record<string, number> = {
 const FORMATIONS = ['1-2-2', '1-1-2-1', '1-2-1-1', '1-1-1-2'];
 
 function App() {
+  // Authentication & Session States
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [isRosterLoaded, setIsRosterLoaded] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // App States
   const [tab, setTab] = useState<'team' | 'market' | 'training' | 'match' | 'tournaments'>('team');
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [ownedPlayers, setOwnedPlayers] = useState<Player[]>([]);
@@ -30,13 +39,54 @@ function App() {
   const [assigningSlot, setAssigningSlot] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Load all players from backend
+  const initialLoadRef = useRef(false);
+
+  // Load all players from backend templates
   useEffect(() => {
     fetchAllPlayers()
       .then(players => setAllPlayers(players))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Auto-login at startup from localStorage
+  useEffect(() => {
+    const savedUser = localStorage.getItem('mangakick_user');
+    if (savedUser) {
+      try {
+        const { username, password } = JSON.parse(savedUser);
+        loginUser(username, password)
+          .then(loginData => {
+            setActiveUsername(loginData.user.username);
+            setCoins(loginData.user.coins);
+            setOwnedPlayers(loginData.user.ownedPlayers);
+            setFormation(loginData.user.formation);
+            setLineup(loginData.user.lineup);
+            setCurrentUser(loginData.user.username);
+            setIsRosterLoaded(true);
+            setToast({ message: `Sesión restaurada para ${loginData.user.username}`, type: 'success' });
+          })
+          .catch(err => {
+            console.error('Auto-login failed:', err);
+            localStorage.removeItem('mangakick_user');
+          });
+      } catch (e) {
+        console.error('Failed to parse saved user:', e);
+      }
+    }
+  }, []);
+
+  // Auto-synchronize client states with backend users.json file on changes
+  useEffect(() => {
+    if (currentUser && isRosterLoaded) {
+      syncUserState({
+        coins,
+        ownedPlayers,
+        formation,
+        lineup
+      }).catch(err => console.error('Error synchronizing state with backend:', err));
+    }
+  }, [coins, ownedPlayers, formation, lineup, currentUser, isRosterLoaded]);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -48,6 +98,56 @@ function App() {
 
   const ownedPlayerIds = new Set(ownedPlayers.map(p => p.id));
 
+  // Authentication Submission
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authUsername.trim() || !authPassword.trim()) {
+      setToast({ message: 'Por favor, rellena todos los campos', type: 'error' });
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      if (authMode === 'login') {
+        const data = await loginUser(authUsername, authPassword);
+        setActiveUsername(data.user.username);
+        setCoins(data.user.coins);
+        setOwnedPlayers(data.user.ownedPlayers);
+        setFormation(data.user.formation);
+        setLineup(data.user.lineup);
+        setCurrentUser(data.user.username);
+        localStorage.setItem('mangakick_user', JSON.stringify({
+          username: data.user.username,
+          password: authPassword
+        }));
+        setIsRosterLoaded(true);
+        setToast({ message: `¡Bienvenido de nuevo, ${data.user.username}!`, type: 'success' });
+      } else {
+        await registerUser(authUsername, authPassword);
+        setToast({ message: '¡Registro completado! Ya puedes iniciar sesión', type: 'success' });
+        setAuthMode('login');
+      }
+    } catch (err: any) {
+      setToast({ message: err.message || 'Error en la autenticación', type: 'error' });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Logout Handler
+  const handleLogout = useCallback(() => {
+    setActiveUsername(null);
+    setCurrentUser(null);
+    setIsRosterLoaded(false);
+    localStorage.removeItem('mangakick_user');
+    setCoins(3000);
+    setOwnedPlayers([]);
+    setFormation('1-2-2');
+    setLineup(getFormationSlots('1-2-2'));
+    setAuthUsername('');
+    setAuthPassword('');
+    setToast({ message: 'Sesión cerrada correctamente', type: 'success' });
+  }, []);
+
   // Recruit a player
   const handleRecruit = useCallback((player: Player) => {
     const cost = RARITY_COST[player.rarity] || 100;
@@ -56,10 +156,14 @@ function App() {
       return;
     }
     if (ownedPlayerIds.has(player.id)) {
-      setToast({ message: 'Ya tienes este jugador', type: 'error' });
+      setToast({ message: 'Ya tienes a este jugador en tu plantilla', type: 'error' });
       return;
     }
-    setOwnedPlayers(prev => [...prev, player]);
+    
+    // Create a personalized, mutable copy of the player template
+    const playerCopy = { ...player, level: 1, xp: 0 };
+    
+    setOwnedPlayers(prev => [...prev, playerCopy]);
     setCoins(prev => prev - cost);
     setToast({ message: `¡${player.name} fichado por ${cost} MC!`, type: 'success' });
   }, [coins, ownedPlayerIds]);
@@ -146,6 +250,78 @@ function App() {
   // Get the lineup players for the match
   const lineupPlayers = lineup.filter(s => s.player !== null).map(s => s.player!);
 
+  // Render Login view if no user logged in
+  if (!currentUser) {
+    return (
+      <>
+        <div className="app-background" />
+        <div className="auth-container">
+          <div className="auth-card">
+            <div className="logo">
+              Manga<span>Kick</span>
+            </div>
+            <p className="auth-subtitle">
+              {authMode === 'login'
+                ? 'Ingresa tus credenciales de mánager deportivo'
+                : 'Registra tu nueva cuenta de director técnico'}
+            </p>
+
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              <div className="form-group">
+                <label htmlFor="username">Nombre de Usuario</label>
+                <input
+                  type="text"
+                  id="username"
+                  className="form-input"
+                  placeholder="Ej. JoseLuis"
+                  value={authUsername}
+                  onChange={(e) => setAuthUsername(e.target.value)}
+                  disabled={authLoading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Contraseña</label>
+                <input
+                  type="password"
+                  id="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  disabled={authLoading}
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ marginTop: 'var(--space-sm)' }} disabled={authLoading}>
+                {authLoading
+                  ? 'Procesando...'
+                  : authMode === 'login'
+                  ? 'Iniciar Sesión'
+                  : 'Registrar Cuenta'}
+              </button>
+            </form>
+
+            <button
+              className="auth-toggle"
+              onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+              disabled={authLoading}
+            >
+              {authMode === 'login' ? (
+                <>¿No tienes cuenta? <span>Regístrate aquí</span></>
+              ) : (
+                <>¿Ya estás registrado? <span>Inicia sesión aquí</span></>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {toast && <div className={`toast ${toast.type}`}>{toast.message}</div>}
+      </>
+    );
+  }
+
+  // Main Dashboard View
   return (
     <>
       <div className="app-background" />
@@ -179,9 +355,19 @@ function App() {
           </button>
         </nav>
 
-        <div className="wallet-display">
-          <span className="wallet-icon"><Coins size={20} className="text-neon-gold" /></span>
-          <span className="wallet-amount">{coins.toLocaleString()} MC</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="wallet-display">
+            <span className="wallet-icon"><Coins size={20} className="text-neon-gold" /></span>
+            <span className="wallet-amount">{coins.toLocaleString()} MC</span>
+          </div>
+
+          <div className="auth-user-info">
+            <User size={16} className="text-neon-blue" />
+            <span style={{ fontWeight: 700 }}>{currentUser}</span>
+            <button className="auth-logout-btn" onClick={handleLogout} title="Cerrar sesión">
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </header>
 

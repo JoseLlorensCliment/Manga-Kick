@@ -1,5 +1,19 @@
 const API_BASE = 'http://localhost:5000/api';
 
+let activeUsername: string | null = null;
+
+export function setActiveUsername(username: string | null) {
+  activeUsername = username;
+}
+
+function getHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (activeUsername) {
+    headers['x-username'] = activeUsername;
+  }
+  return headers;
+}
+
 export async function fetchAllPlayers() {
   const res = await fetch(`${API_BASE}/players`);
   if (!res.ok) throw new Error('Failed to fetch players');
@@ -37,7 +51,7 @@ export async function fetchDrills() {
 export async function trainPlayer(playerId: string, drillId: string) {
   const res = await fetch(`${API_BASE}/training/train`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ playerId, drillId }),
   });
   if (!res.ok) throw new Error('Training failed');
@@ -47,7 +61,50 @@ export async function trainPlayer(playerId: string, drillId: string) {
 export async function resetTraining(playerId: string) {
   const res = await fetch(`${API_BASE}/training/reset/${playerId}`, {
     method: 'POST',
+    headers: getHeaders(),
   });
   if (!res.ok) throw new Error('Reset failed');
   return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// User Accounts & Sincronización
+// ---------------------------------------------------------------------------
+
+export async function registerUser(username: string, password: string) {
+  const res = await fetch(`${API_BASE}/users/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Registration failed');
+  return data;
+}
+
+export async function loginUser(username: string, password: string) {
+  const res = await fetch(`${API_BASE}/users/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Login failed');
+  return data;
+}
+
+export async function syncUserState(state: {
+  coins: number;
+  ownedPlayers: unknown[];
+  formation: string;
+  lineup: unknown[];
+}) {
+  const res = await fetch(`${API_BASE}/users/sync`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(state),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Sync failed');
+  return data;
 }

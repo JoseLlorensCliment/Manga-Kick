@@ -89,28 +89,33 @@ Para la capa del servidor se ha optado por **Node.js** complementado con el fram
     *   **CORS (Cross-Origin Resource Sharing):** Permitir la comunicación segura entre el dominio del frontend (`localhost:5173`) y el del backend (`localhost:5000`).
     *   **Express.json():** Parsear y procesar payloads entrantes en formato JSON de manera nativa.
 
-### 3.3.2.- Base de Datos en Memoria y API RESTful
+### 3.3.2.- Base de Datos Híbrida (Caché en Memoria con Persistencia Local JSON)
 
-Para garantizar la máxima velocidad posible de la aplicación, simplificar el despliegue del proyecto académico en entornos locales sin requerir instalaciones pesadas de sistemas gestores de bases de datos tradicionales, MangaKick implementa un **motor de persistencia en memoria (In-memory Database)** diseñado en JavaScript (`database.js`).
+Para garantizar la máxima velocidad posible de la aplicación, simplificar el despliegue del proyecto académico en entornos locales sin requerir instalaciones pesadas de sistemas gestores de bases de datos tradicionales, MangaKick implementa un **motor de persistencia híbrido (In-Memory Cache with Local JSON Persistence)** desarrollado mediante un gestor centralizado (`usersManager.js`).
 
-*   **Estructura y Coherencia:** El módulo de persistencia almacena en memoria los datos originales y mutables de los jugadores de anime y reales, los entrenamientos aplicables y el estado de la sesión de juego. Al ser código JavaScript nativo, los accesos a datos son directos y síncronos, operando a la velocidad de la memoria RAM (microsegundos), eliminando de raíz las latencias asociadas a consultas remotas de bases de datos.
+*   **El Enfoque Híbrido:** El módulo de persistencia almacena en memoria los datos originales y mutables de los jugadores de anime y reales, los entrenamientos aplicables y el estado de la sesión de juego. Para posibilitar la persistencia multiusuario sin incurrir en dependencias pesadas, se ha introducido un modelo que almacena las cuentas de usuario en un archivo estructurado local (`backend/data/users.json`).
+*   **Funcionamiento Técnico:**
+    1.  *Lectura Inicial:* Al arrancar el servidor backend, el administrador de usuarios (`usersManager.js`) carga en memoria RAM la totalidad de los perfiles y estados de juego guardados en el archivo `users.json`.
+    2.  *Operaciones a Velocidad RAM:* Todas las operaciones y transacciones (iniciar sesión, registrarse, comprar cartas en el draft o aplicar entrenamientos específicos) se ejecutan de manera síncrona en memoria a la velocidad de la RAM (microsegundos), eliminando latencias asociadas a motores externos.
+    3.  *Escritura en Disco:* Cada vez que se modifica un estado crítico del usuario (se completa una sesión de entrenamiento, se adquiere un jugador o se reestructura el once táctico), el backend escribe de forma asíncrona los cambios actualizados de vuelta al archivo físico `users.json`.
 *   **API RESTful:** La comunicación se rige estrictamente por los principios de la arquitectura REST (Representational State Transfer), utilizando verbos estándar de protocolo HTTP:
     *   `GET /api/players`: Recupera el catálogo completo de futbolistas disponibles.
-    *   `GET /api/players/:id`: Obtiene el perfil estadístico de un jugador concreto.
-    *   `POST /api/match/simulate`: Recibe los equipos seleccionados en el cuerpo de la petición y devuelve el resultado detallado de la simulación.
-    *   `POST /api/training/train`: Ejecuta una sesión de entrenamiento incrementando la XP y estadísticas de un jugador.
+    *   `POST /api/users/register`: Registra un nuevo mánager en el sistema.
+    *   `POST /api/users/login`: Autentica credenciales y devuelve el estado persistido (monedas, plantilla, alineación y formación).
+    *   `POST /api/users/sync`: Sincroniza en caliente el saldo y plantilla activa desde el cliente hacia la base de datos del servidor.
+    *   `POST /api/training/train`: Ejecuta una sesión de entrenamiento incrementando la XP y estadísticas de un jugador (asociado a la cuenta mediante la cabecera `x-username`).
 
-A continuación, se resume una comparativa de la hipótesis de persistencia en memoria respecto a otros paradigmas evaluados durante el diseño del sistema:
+A continuación, se resume una comparativa de la hipótesis de persistencia híbrida en memoria respecto a otros paradigmas evaluados durante el diseño del sistema:
 
-| Criterio de Selección | Bases de Datos SQL (PostgreSQL) | Bases de Datos NoSQL (MongoDB) | **Base de Datos en Memoria (JS Cache)** |
+| Criterio de Selección | Bases de Datos SQL (PostgreSQL) | Bases de Datos NoSQL (MongoDB) | **Persistencia Híbrida Local (MangaKick)** |
 | :--- | :--- | :--- | :--- |
 | **Velocidad de Lectura** | Media (Milisegundos de red + disco) | Alta (Milisegundos de red + caché) | **Instantánea (Microsegundos de RAM)** |
 | **Facilidad de Configuración**| Baja (Requiere servidor y esquemas) | Media (Requiere cluster o servicio) | **Máxima (Sin configuración externa)** |
-| **Consumo de Almacenamiento**| Alto | Medio-Alto | **Extremadamente Bajo (Caché ligera)** |
+| **Consumo de Almacenamiento**| Alto | Medio-Alto | **Extremadamente Bajo (JSON optimizado)** |
 | **Complejidad de Despliegue** | Alta (Requiere volumen Docker y red)| Alta (Requiere variables de conexión) | **Nula (Integrado en el propio proceso)** |
-| **Persistencia a Largo Plazo**| Máxima (Persistencia física robusta) | Máxima (Persistencia física documental)| Baja (Reinicios restablecen datos originales) |
+| **Persistencia a Largo Plazo**| Máxima (Persistencia física robusta) | Máxima (Persistencia física documental)| **Alta (Persiste tras apagados y reinicios)** |
 
-*Valoración técnica:* Dado que el entorno didáctico y casual de MangaKick prioriza la inmediatez, la agilidad de juego de una sola sesión y la extrema sencillez en el despliegue por parte de un examinador o usuario externo, la balanza de ingeniería se decantó de forma definitiva por la **Base de Datos en Memoria**.
+*Valoración técnica:* Dado que el entorno didáctico y casual de MangaKick prioriza la inmediatez, la agilidad de juego de una sola sesión y la extrema sencillez en el despliegue por parte de un examinador o usuario externo, pero requería de una **persistencia de cuentas real** para guardar plantillas y saldo, la balanza de ingeniería se decantó de forma definitiva por la **Persistencia Híbrida Local JSON**, la cual unifica las ventajas de velocidad de la memoria RAM con la permanencia física de un archivo de datos local.
 
 ---
 

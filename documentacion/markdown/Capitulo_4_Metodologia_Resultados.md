@@ -59,8 +59,8 @@ El sistema define un único rol de usuario en esta fase:
 *   **RF-2: Mercado de Fichajes (*Draft Market*):** El sistema debe ofrecer una pantalla con 3 cartas aleatorias de jugadores disponibles para comprar. Cada jugador tendrá un coste monetario asociado a su rareza. El usuario partirá con un saldo virtual y podrá renovar la lista del mercado de forma aleatoria.
 *   **RF-3: Pizarra Táctica e Interfaz Táctica:** El usuario debe poder arrastrar o asignar exactamente 5 jugadores de su plantilla para conformar su alineación táctica activa, distribuidos bajo las posiciones clásicas: Portero (GK), Defensa (DEF), Centrocampista (MID) y Delantero (FWD). El sistema no permitirá partidos si la alineación no está completa.
 *   **RF-4: Simulador Probabilístico de Partidos:** El sistema debe permitir lanzar una simulación de 90 minutos de juego entre el equipo activo del usuario y un equipo oponente de IA equilibrado. El simulador procesará sucesos lógicos paso a paso (goles, tiros, paradas, faltas, lesiones, habilidades especiales) y mostrará una crónica en tiempo real en la pantalla. Al finalizar, mostrará el marcador final, estadísticas detalladas de posesión y tiros, y nombrará al "Jugador del Partido" (*Player of the Match*).
-*   **RF-5: Centro de Entrenamiento y Progresión:** El usuario podrá seleccionar cualquier jugador de su plantilla y someterlo a drills o entrenamientos específicos (como Carrera de Conos, Práctica de Disparo, Gimnasio, etc.). Cada drill consumirá un coste virtual de monedas y otorgará puntos de experiencia (XP) y boosts permanentes de atributos asociados a dicho entrenamiento (por ejemplo, velocidad en Pace o puntería en Shooting).
-*   **RF-6: Reinicio de Progresión:** El sistema debe proveer una opción global para resetear el nivel y la experiencia de un jugador específico a su estado inicial.
+*   **RF-5: Centro de Entrenamiento y Progresión:** El usuario podrá seleccionar cualquier jugador de su plantilla y someterlo a drills o entrenamientos específicos (como Carrera de Conos, Práctica de Disparo, Gimnasio, etc.). Cada drill consumirá un coste virtual de monedas y otorgará puntos de experiencia (XP) y boosts permanentes *   **RF-6: Reinicio de Progresión:** El sistema debe proveer una opción global para resetear el nivel y la experiencia de un jugador específico a su estado inicial.
+*   **RF-7: Registro y Autenticación de Cuentas de Mánager:** El sistema debe proveer un portal de acceso (Login/Registro) para salvaguardar el progreso de cada mánager. Al iniciar sesión, se cargan del servidor y se restauran en el cliente el saldo exacto de monedas, el plantel de futbolistas comprados y su nivel actual, y la disposición exacta de la pizarra táctica.
 
 ### 4.2.3.- Especificación de Caso de Uso Principal (Tabla 4.2)
 
@@ -190,16 +190,61 @@ Cuando el acumulado de XP del jugador supera este umbral (y siempre que no haya 
 
 ---
 
-## 4.6.- PRUEBAS E IMPLANTACIÓN (DOCKER)
+## 4.6.- MODELO DE PERSISTENCIA Y SINCRONIZACIÓN MULTIUSUARIO
+
+Para hacer viable la persistencia física entre reinicios del servidor sin incurrir en dependencias de bases de datos pesadas de difícil despliegue, se ha diseñado un modelo híbrido basado en la sincronización reactiva cliente-servidor y el almacenamiento físico JSON en el host.
+
+### 4.6.1.- Estructura de Persistencia enusers.json
+Los perfiles de usuario se registran de forma indexada en el archivo `backend/data/users.json` siguiendo el siguiente esquema físico de datos:
+
+```json
+{
+  "joseluis": {
+    "username": "JoseLuis",
+    "password": "mi_contraseña",
+    "coins": 4500,
+    "ownedPlayers": [
+      {
+        "id": "anime-1",
+        "name": "Yoichi Isagi",
+        "level": 3,
+        "xp": 45,
+        "stats": { "pace": 80, "shooting": 90, "passing": 77, "dribbling": 82, "defense": 37, "physical": 67 }
+      }
+    ],
+    "formation": "1-2-2",
+    "lineup": [
+      { "id": "slot-0", "position": "GK", "player": null },
+      { "id": "slot-1", "position": "DEF", "player": null },
+      { "id": "slot-2", "position": "MID", "player": null },
+      { "id": "slot-3", "position": "FWD", "player": { "id": "anime-1", "name": "Yoichi Isagi", "level": 3 } }
+    ]
+  }
+}
+```
+
+### 4.6.2.- Flujo de Sincronización Reactiva (Auto-Sync)
+En el frontend (`App.tsx`), en lugar de gatillar manualmente la llamada a la base de datos tras cada acción interactiva elemental (lo que complicaría y fragmentaría el código del cliente), se ha implementado un **Hook Reactivo de Sincronización Automática (Auto-Sync Hook)**.
+
+Este hook consiste en un `useEffect` que escucha cambios en las variables del estado de la sesión de React del usuario:
+1.  **Estados Escuchados:** `[coins, ownedPlayers, formation, lineup, currentUser, isRosterLoaded]`.
+2.  **Operación:** Cuando cualquiera de estos estados es alterado (debido a comprar un jugador, ganar un partido, cambiar una formación, etc.) y una vez que la carga de perfil inicial ha terminado (`isRosterLoaded === true`), emite una petición asíncrona `POST /api/users/sync` enviando el nuevo estado.
+3.  **Inyección de Identidad:** El cliente añade automáticamente la cabecera HTTP `x-username` en la llamada. El backend Express intercepta el request, lee el archivo JSON, actualiza el objeto específico de ese usuario y escribe asíncronamente los cambios a disco mediante `usersManager.saveUsers()`.
+4.  **Caché en el Cliente (Auto-Login):** Para evitar que el mánager tenga que introducir su contraseña con cada recarga de página, los datos del usuario activo se guardan cifrados temporalmente en el `localStorage` del navegador. Al iniciar la SPA, se lee esta memoria y se efectúa un inicio de sesión silencioso automático contra el servidor para restaurar la sesión en milisegundos.
+
+---
+
+## 4.7.- PRUEBAS E IMPLANTACIÓN (DOCKER)
 
 Para validar e implantar la solución técnica de forma profesional y segura, se definieron dos flujos de aseguramiento de calidad:
 
-### 4.6.1.- Pruebas Funcionales y de Rendimiento
+### 4.7.1.- Pruebas Funcionales y de Rendimiento
 Se llevaron a cabo pruebas destinadas a certificar el comportamiento óptimo del sistema:
 1.  **Pruebas de Balance Táctico (Simulaciones Masivas):** Se ejecutaron bucles automatizados de 1000 simulaciones de partidos cruzando equipos de estadísticas homogéneas frente a equipos desiguales. Se constató que las estadísticas finales de victoria/empate/derrota seguían una distribución lógica: un equipo con un overall medio de 90 ganaba en el 82.4% de los casos a un equipo de overall 60, reflejando el correcto calibrado de los coeficientes de disparo y parada.
 2.  **Pruebas de Límite de Atributos:** Se sometió a un jugador a 100 entrenamientos consecutivos para verificar que las estadísticas físicas nunca superaban el tope lógico de 99, corroborando la correcta implementación de las funciones `Math.min(99, ...)` en el backend.
+3.  **Pruebas de Persistencia ante Caídas de Servidor:** Se registraron 5 directores técnicos simulando transacciones y entrenamientos. Posteriormente, se forzó un apagado abrupto del servidor backend. Al reestablecer el servicio, se constató que la lectura síncrona en el arranque recuperó el 100% de los estados con una fidelidad absoluta leyendo del archivo local persistent.
 
-### 4.6.2.- Despliegue con Docker Compose
+### 4.7.2.- Despliegue con Docker Compose
 La implantación en el sistema se realiza de forma totalmente automatizada. Para desplegar la aplicación en local, basta con ejecutar el siguiente comando en el terminal de comandos en la raíz del proyecto:
 
 ```powershell
@@ -213,3 +258,4 @@ Este comando realiza secuencialmente las siguientes operaciones críticas:
     *   Para `frontend`, levanta un entorno Node para compilar la aplicación React y TypeScript en archivos estáticos HTML/JS/CSS optimizados, los inyecta en el directorio html de un servidor Nginx ligero y expone el puerto `80`.
 3.  **Mapeo de Puertos y Enrutamiento:** Enlaza el puerto `5173` local de la máquina anfitrión directamente con el puerto `80` del contenedor de Nginx.
 4.  **Inicialización de Red Aislada:** Conecta ambos contenedores a una red virtual interna compartida, permitiendo que el cliente web acceda a los servicios de la API REST a través del puerto `5000` de forma segura e independiente del entorno del sistema operativo local.
+

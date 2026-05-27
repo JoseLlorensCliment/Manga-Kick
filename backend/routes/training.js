@@ -1,5 +1,6 @@
 import { Router } from "express";
 import db, { getPlayerById, calculateOverall } from "../database.js";
+import usersManager from "../usersManager.js";
 
 const router = Router();
 
@@ -15,15 +16,28 @@ router.get("/drills", (_req, res) => {
 // ---------------------------------------------------------------------------
 router.post("/train", (req, res) => {
   const { playerId, drillId } = req.body;
+  const username = req.headers["x-username"];
 
   if (!playerId || !drillId) {
     return res.status(400).json({ error: "playerId and drillId are required" });
   }
 
-  // Find player (mutable reference in the in-memory DB)
-  const player = getPlayerById(playerId);
-  if (!player) {
-    return res.status(404).json({ error: "Player not found" });
+  // Find player (mutable reference)
+  let player;
+  if (username) {
+    const user = usersManager.getUser(username);
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    player = user.ownedPlayers.find((p) => p.id === playerId);
+    if (!player) {
+      return res.status(404).json({ error: "Jugador no encontrado en tu equipo" });
+    }
+  } else {
+    player = getPlayerById(playerId);
+    if (!player) {
+      return res.status(404).json({ error: "Player not found" });
+    }
   }
 
   // Find drill
@@ -54,10 +68,15 @@ router.post("/train", (req, res) => {
     leveledUp = true;
   }
 
+  // Save changes if this is a user-aware call
+  if (username) {
+    usersManager.saveUsers();
+  }
+
   res.json({
     message: leveledUp
-      ? `${player.name} trained with "${drill.name}" and leveled up to level ${player.level}! 🎉`
-      : `${player.name} completed "${drill.name}" training.`,
+      ? `${player.name} ha entrenado con "${drill.name}" y ha subido al nivel ${player.level}! 🎉`
+      : `${player.name} completó el entrenamiento de "${drill.name}".`,
     player: { 
       ...player, 
       overall: calculateOverall(player.stats),
@@ -75,9 +94,24 @@ router.post("/train", (req, res) => {
 // POST /reset/:id  –  Reset a player's training to level 1
 // ---------------------------------------------------------------------------
 router.post("/reset/:id", (req, res) => {
-  const player = getPlayerById(req.params.id);
-  if (!player) {
-    return res.status(404).json({ error: "Player not found" });
+  const username = req.headers["x-username"];
+  const playerId = req.params.id;
+
+  let player;
+  if (username) {
+    const user = usersManager.getUser(username);
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    player = user.ownedPlayers.find((p) => p.id === playerId);
+    if (!player) {
+      return res.status(404).json({ error: "Jugador no encontrado en tu equipo" });
+    }
+  } else {
+    player = getPlayerById(playerId);
+    if (!player) {
+      return res.status(404).json({ error: "Player not found" });
+    }
   }
 
   // Find the original template to restore stats
@@ -85,12 +119,19 @@ router.post("/reset/:id", (req, res) => {
     db.animeCharacters.find((p) => p.id === player.id) ||
     db.realFootballers.find((p) => p.id === player.id);
 
-  // We can't restore originals since we mutate in-place, so just reset level/xp
+  if (original) {
+    player.stats = { ...original.stats };
+  }
   player.level = 1;
   player.xp = 0;
 
+  // Save changes if this is a user-aware call
+  if (username) {
+    usersManager.saveUsers();
+  }
+
   res.json({
-    message: `${player.name}'s training progress has been reset to level 1.`,
+    message: `El entrenamiento de ${player.name} ha sido restablecido al nivel 1.`,
     player: { 
       ...player, 
       overall: calculateOverall(player.stats),
@@ -99,5 +140,6 @@ router.post("/reset/:id", (req, res) => {
     },
   });
 });
+
 
 export default router;

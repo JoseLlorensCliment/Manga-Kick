@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import playersRouter from "./routes/players.js";
 import matchRouter from "./routes/simulator.js";
 import trainingRouter from "./routes/training.js";
+import usersRouter from "./routes/users.js";
 import { loadAllImages } from "./imageLoader.js";
 
 dotenv.config();
@@ -30,6 +31,8 @@ app.use(express.json());
 app.use("/api/players", playersRouter);
 app.use("/api/match", matchRouter);
 app.use("/api/training", trainingRouter);
+app.use("/api/users", usersRouter);
+
 
 // Health-check
 app.get("/api/health", (_req, res) => {

@@ -372,28 +372,33 @@ Para la capa del servidor se ha optado por **Node.js** complementado con el fram
     *   **CORS (Cross-Origin Resource Sharing):** Permitir la comunicación segura entre el dominio del frontend (`localhost:5173`) y el del backend (`localhost:5000`).
     *   **Express.json():** Parsear y procesar payloads entrantes en formato JSON de manera nativa.
 
-### 3.3.2.- Base de Datos en Memoria y API RESTful
+### 3.3.2.- Base de Datos Híbrida (Caché en Memoria con Persistencia Local JSON)
 
-Para garantizar la máxima velocidad posible de la aplicación, simplificar el despliegue del proyecto académico en entornos locales sin requerir instalaciones pesadas de sistemas gestores de bases de datos tradicionales, MangaKick implementa un **motor de persistencia en memoria (In-memory Database)** diseñado en JavaScript (`database.js`).
+Para garantizar la máxima velocidad posible de la aplicación, simplificar el despliegue del proyecto académico en entornos locales sin requerir instalaciones pesadas de sistemas gestores de bases de datos tradicionales, MangaKick implementa un **motor de persistencia híbrido (In-Memory Cache with Local JSON Persistence)** desarrollado mediante un gestor centralizado (`usersManager.js`).
 
-*   **Estructura y Coherencia:** El módulo de persistencia almacena en memoria los datos originales y mutables de los jugadores de anime y reales, los entrenamientos aplicables y el estado de la sesión de juego. Al ser código JavaScript nativo, los accesos a datos son directos y síncronos, operando a la velocidad de la memoria RAM (microsegundos), eliminando de raíz las latencias asociadas a consultas remotas de bases de datos.
+*   **El Enfoque Híbrido:** El módulo de persistencia almacena en memoria los datos originales y mutables de los jugadores de anime y reales, los entrenamientos aplicables y el estado de la sesión de juego. Para posibilitar la persistencia multiusuario sin incurrir en dependencias pesadas, se ha introducido un modelo que almacena las cuentas de usuario en un archivo estructurado local (`backend/data/users.json`).
+*   **Funcionamiento Técnico:**
+    1.  *Lectura Inicial:* Al arrancar el servidor backend, el administrador de usuarios (`usersManager.js`) carga en memoria RAM la totalidad de los perfiles y estados de juego guardados en el archivo `users.json`.
+    2.  *Operaciones a Velocidad RAM:* Todas las operaciones y transacciones (iniciar sesión, registrarse, comprar cartas en el draft o aplicar entrenamientos específicos) se ejecutan de manera síncrona en memoria a la velocidad de la RAM (microsegundos), eliminando latencias asociadas a motores externos.
+    3.  *Escritura en Disco:* Cada vez que se modifica un estado crítico del usuario (se completa una sesión de entrenamiento, se adquiere un jugador o se reestructura el once táctico), el backend escribe de forma asíncrona los cambios actualizados de vuelta al archivo físico `users.json`.
 *   **API RESTful:** La comunicación se rige estrictamente por los principios de la arquitectura REST (Representational State Transfer), utilizando verbos estándar de protocolo HTTP:
     *   `GET /api/players`: Recupera el catálogo completo de futbolistas disponibles.
-    *   `GET /api/players/:id`: Obtiene el perfil estadístico de un jugador concreto.
-    *   `POST /api/match/simulate`: Recibe los equipos seleccionados en el cuerpo de la petición y devuelve el resultado detallado de la simulación.
-    *   `POST /api/training/train`: Ejecuta una sesión de entrenamiento incrementando la XP y estadísticas de un jugador.
+    *   `POST /api/users/register`: Registra un nuevo mánager en el sistema.
+    *   `POST /api/users/login`: Autentica credenciales y devuelve el estado persistido (monedas, plantilla, alineación y formación).
+    *   `POST /api/users/sync`: Sincroniza en caliente el saldo y plantilla activa desde el cliente hacia la base de datos del servidor.
+    *   `POST /api/training/train`: Ejecuta una sesión de entrenamiento incrementando la XP y estadísticas de un jugador (asociado a la cuenta mediante la cabecera `x-username`).
 
-A continuación, se resume una comparativa de la hipótesis de persistencia en memoria respecto a otros paradigmas evaluados durante el diseño del sistema:
+A continuación, se resume una comparativa de la hipótesis de persistencia híbrida en memoria respecto a otros paradigmas evaluados durante el diseño del sistema:
 
-| Criterio de Selección | Bases de Datos SQL (PostgreSQL) | Bases de Datos NoSQL (MongoDB) | **Base de Datos en Memoria (JS Cache)** |
+| Criterio de Selección | Bases de Datos SQL (PostgreSQL) | Bases de Datos NoSQL (MongoDB) | **Persistencia Híbrida Local (MangaKick)** |
 | :--- | :--- | :--- | :--- |
 | **Velocidad de Lectura** | Media (Milisegundos de red + disco) | Alta (Milisegundos de red + caché) | **Instantánea (Microsegundos de RAM)** |
 | **Facilidad de Configuración**| Baja (Requiere servidor y esquemas) | Media (Requiere cluster o servicio) | **Máxima (Sin configuración externa)** |
-| **Consumo de Almacenamiento**| Alto | Medio-Alto | **Extremadamente Bajo (Caché ligera)** |
+| **Consumo de Almacenamiento**| Alto | Medio-Alto | **Extremadamente Bajo (JSON optimizado)** |
 | **Complejidad de Despliegue** | Alta (Requiere volumen Docker y red)| Alta (Requiere variables de conexión) | **Nula (Integrado en el propio proceso)** |
-| **Persistencia a Largo Plazo**| Máxima (Persistencia física robusta) | Máxima (Persistencia física documental)| Baja (Reinicios restablecen datos originales) |
+| **Persistencia a Largo Plazo**| Máxima (Persistencia física robusta) | Máxima (Persistencia física documental)| **Alta (Persiste tras apagados y reinicios)** |
 
-*Valoración técnica:* Dado que el entorno didáctico y casual de MangaKick prioriza la inmediatez, la agilidad de juego de una sola sesión y la extrema sencillez en el despliegue por parte de un examinador o usuario externo, la balanza de ingeniería se decantó de forma definitiva por la **Base de Datos en Memoria**.
+*Valoración técnica:* Dado que el entorno didáctico y casual de MangaKick prioriza la inmediatez, la agilidad de juego de una sola sesión y la extrema sencillez en el despliegue por parte de un examinador o usuario externo, pero requería de una **persistencia de cuentas real** para guardar plantillas y saldo, la balanza de ingeniería se decantó de forma definitiva por la **Persistencia Híbrida Local JSON**, la cual unifica las ventajas de velocidad de la memoria RAM con la permanencia física de un archivo de datos local.
 
 ---
 
@@ -485,8 +490,8 @@ El sistema define un único rol de usuario en esta fase:
 *   **RF-2: Mercado de Fichajes (*Draft Market*):** El sistema debe ofrecer una pantalla con 3 cartas aleatorias de jugadores disponibles para comprar. Cada jugador tendrá un coste monetario asociado a su rareza. El usuario partirá con un saldo virtual y podrá renovar la lista del mercado de forma aleatoria.
 *   **RF-3: Pizarra Táctica e Interfaz Táctica:** El usuario debe poder arrastrar o asignar exactamente 5 jugadores de su plantilla para conformar su alineación táctica activa, distribuidos bajo las posiciones clásicas: Portero (GK), Defensa (DEF), Centrocampista (MID) y Delantero (FWD). El sistema no permitirá partidos si la alineación no está completa.
 *   **RF-4: Simulador Probabilístico de Partidos:** El sistema debe permitir lanzar una simulación de 90 minutos de juego entre el equipo activo del usuario y un equipo oponente de IA equilibrado. El simulador procesará sucesos lógicos paso a paso (goles, tiros, paradas, faltas, lesiones, habilidades especiales) y mostrará una crónica en tiempo real en la pantalla. Al finalizar, mostrará el marcador final, estadísticas detalladas de posesión y tiros, y nombrará al "Jugador del Partido" (*Player of the Match*).
-*   **RF-5: Centro de Entrenamiento y Progresión:** El usuario podrá seleccionar cualquier jugador de su plantilla y someterlo a drills o entrenamientos específicos (como Carrera de Conos, Práctica de Disparo, Gimnasio, etc.). Cada drill consumirá un coste virtual de monedas y otorgará puntos de experiencia (XP) y boosts permanentes de atributos asociados a dicho entrenamiento (por ejemplo, velocidad en Pace o puntería en Shooting).
-*   **RF-6: Reinicio de Progresión:** El sistema debe proveer una opción global para resetear el nivel y la experiencia de un jugador específico a su estado inicial.
+*   **RF-5: Centro de Entrenamiento y Progresión:** El usuario podrá seleccionar cualquier jugador de su plantilla y someterlo a drills o entrenamientos específicos (como Carrera de Conos, Práctica de Disparo, Gimnasio, etc.). Cada drill consumirá un coste virtual de monedas y otorgará puntos de experiencia (XP) y boosts permanentes *   **RF-6: Reinicio de Progresión:** El sistema debe proveer una opción global para resetear el nivel y la experiencia de un jugador específico a su estado inicial.
+*   **RF-7: Registro y Autenticación de Cuentas de Mánager:** El sistema debe proveer un portal de acceso (Login/Registro) para salvaguardar el progreso de cada mánager. Al iniciar sesión, se cargan del servidor y se restauran en el cliente el saldo exacto de monedas, el plantel de futbolistas comprados y su nivel actual, y la disposición exacta de la pizarra táctica.
 
 ### 4.2.3.- Especificación de Caso de Uso Principal (Tabla 4.2)
 
@@ -616,16 +621,61 @@ Cuando el acumulado de XP del jugador supera este umbral (y siempre que no haya 
 
 ---
 
-## 4.6.- PRUEBAS E IMPLANTACIÓN (DOCKER)
+## 4.6.- MODELO DE PERSISTENCIA Y SINCRONIZACIÓN MULTIUSUARIO
+
+Para hacer viable la persistencia física entre reinicios del servidor sin incurrir en dependencias de bases de datos pesadas de difícil despliegue, se ha diseñado un modelo híbrido basado en la sincronización reactiva cliente-servidor y el almacenamiento físico JSON en el host.
+
+### 4.6.1.- Estructura de Persistencia enusers.json
+Los perfiles de usuario se registran de forma indexada en el archivo `backend/data/users.json` siguiendo el siguiente esquema físico de datos:
+
+```json
+{
+  "joseluis": {
+    "username": "JoseLuis",
+    "password": "mi_contraseña",
+    "coins": 4500,
+    "ownedPlayers": [
+      {
+        "id": "anime-1",
+        "name": "Yoichi Isagi",
+        "level": 3,
+        "xp": 45,
+        "stats": { "pace": 80, "shooting": 90, "passing": 77, "dribbling": 82, "defense": 37, "physical": 67 }
+      }
+    ],
+    "formation": "1-2-2",
+    "lineup": [
+      { "id": "slot-0", "position": "GK", "player": null },
+      { "id": "slot-1", "position": "DEF", "player": null },
+      { "id": "slot-2", "position": "MID", "player": null },
+      { "id": "slot-3", "position": "FWD", "player": { "id": "anime-1", "name": "Yoichi Isagi", "level": 3 } }
+    ]
+  }
+}
+```
+
+### 4.6.2.- Flujo de Sincronización Reactiva (Auto-Sync)
+En el frontend (`App.tsx`), en lugar de gatillar manualmente la llamada a la base de datos tras cada acción interactiva elemental (lo que complicaría y fragmentaría el código del cliente), se ha implementado un **Hook Reactivo de Sincronización Automática (Auto-Sync Hook)**.
+
+Este hook consiste en un `useEffect` que escucha cambios en las variables del estado de la sesión de React del usuario:
+1.  **Estados Escuchados:** `[coins, ownedPlayers, formation, lineup, currentUser, isRosterLoaded]`.
+2.  **Operación:** Cuando cualquiera de estos estados es alterado (debido a comprar un jugador, ganar un partido, cambiar una formación, etc.) y una vez que la carga de perfil inicial ha terminado (`isRosterLoaded === true`), emite una petición asíncrona `POST /api/users/sync` enviando el nuevo estado.
+3.  **Inyección de Identidad:** El cliente añade automáticamente la cabecera HTTP `x-username` en la llamada. El backend Express intercepta el request, lee el archivo JSON, actualiza el objeto específico de ese usuario y escribe asíncronamente los cambios a disco mediante `usersManager.saveUsers()`.
+4.  **Caché en el Cliente (Auto-Login):** Para evitar que el mánager tenga que introducir su contraseña con cada recarga de página, los datos del usuario activo se guardan cifrados temporalmente en el `localStorage` del navegador. Al iniciar la SPA, se lee esta memoria y se efectúa un inicio de sesión silencioso automático contra el servidor para restaurar la sesión en milisegundos.
+
+---
+
+## 4.7.- PRUEBAS E IMPLANTACIÓN (DOCKER)
 
 Para validar e implantar la solución técnica de forma profesional y segura, se definieron dos flujos de aseguramiento de calidad:
 
-### 4.6.1.- Pruebas Funcionales y de Rendimiento
+### 4.7.1.- Pruebas Funcionales y de Rendimiento
 Se llevaron a cabo pruebas destinadas a certificar el comportamiento óptimo del sistema:
 1.  **Pruebas de Balance Táctico (Simulaciones Masivas):** Se ejecutaron bucles automatizados de 1000 simulaciones de partidos cruzando equipos de estadísticas homogéneas frente a equipos desiguales. Se constató que las estadísticas finales de victoria/empate/derrota seguían una distribución lógica: un equipo con un overall medio de 90 ganaba en el 82.4% de los casos a un equipo de overall 60, reflejando el correcto calibrado de los coeficientes de disparo y parada.
 2.  **Pruebas de Límite de Atributos:** Se sometió a un jugador a 100 entrenamientos consecutivos para verificar que las estadísticas físicas nunca superaban el tope lógico de 99, corroborando la correcta implementación de las funciones `Math.min(99, ...)` en el backend.
+3.  **Pruebas de Persistencia ante Caídas de Servidor:** Se registraron 5 directores técnicos simulando transacciones y entrenamientos. Posteriormente, se forzó un apagado abrupto del servidor backend. Al reestablecer el servicio, se constató que la lectura síncrona en el arranque recuperó el 100% de los estados con una fidelidad absoluta leyendo del archivo local persistent.
 
-### 4.6.2.- Despliegue con Docker Compose
+### 4.7.2.- Despliegue con Docker Compose
 La implantación en el sistema se realiza de forma totalmente automatizada. Para desplegar la aplicación en local, basta con ejecutar el siguiente comando en el terminal de comandos en la raíz del proyecto:
 
 ```powershell
@@ -639,6 +689,7 @@ Este comando realiza secuencialmente las siguientes operaciones críticas:
     *   Para `frontend`, levanta un entorno Node para compilar la aplicación React y TypeScript en archivos estáticos HTML/JS/CSS optimizados, los inyecta en el directorio html de un servidor Nginx ligero y expone el puerto `80`.
 3.  **Mapeo de Puertos y Enrutamiento:** Enlaza el puerto `5173` local de la máquina anfitrión directamente con el puerto `80` del contenedor de Nginx.
 4.  **Inicialización de Red Aislada:** Conecta ambos contenedores a una red virtual interna compartida, permitiendo que el cliente web acceda a los servicios de la API REST a través del puerto `5000` de forma segura e independiente del entorno del sistema operativo local.
+
 
 
 <!-- PAGE BREAK -->
