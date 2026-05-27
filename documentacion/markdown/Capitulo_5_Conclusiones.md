@@ -31,10 +31,10 @@ En resumen, MangaKick no solo se posiciona como una demostración de software in
 
 MangaKick se ha concebido bajo una arquitectura altamente modular y escalable, sentando una excelente base de software sobre la cual es posible implementar importantes ampliaciones y mejoras en el futuro. Se identifican las siguientes líneas de trabajo y desarrollos futuros prioritarios:
 
-### 5.2.1.- Capa de Persistencia Permanente (Base de Datos Externa)
-La implementación actual de base de datos en memoria (`database.js`) es ideal para la inmediatez y portabilidad de sesiones cortas. Sin embargo, para convertir la aplicación en un producto comercial robusto y a largo plazo, el siguiente paso de ingeniería consistirá en integrar un motor de persistencia física:
-*   **Bases de Datos Documentales (MongoDB):** Al almacenar la información de las cartas y alineaciones en documentos JSON flexibles, MongoDB se integra de forma transparente con el stack de Node.js.
-*   **Bases de Datos Relacionales (PostgreSQL):** La adopción de PostgreSQL proporcionaría un modelo rígido altamente seguro mediante transacciones ACID, ideal para gestionar cuentas de usuario únicas, historiales de partidos, saldo de monedas virtuales y transacciones del mercado de fichajes con total consistencia.
+### 5.2.1.- Transición a un Sistema Gestor de Base de Datos Externa (SGBD)
+La implementación actual mediante persistencia híbrida local (archivo JSON físico `users.json` en disco y caché RAM gestionada en `usersManager.js`) es ideal para garantizar la inmediatez, el rendimiento y una portabilidad absoluta sin dependencias externas complejas. No obstante, para convertir la aplicación en un producto comercial altamente escalable, el siguiente paso consistiría en transicionar la persistencia local a un SGBD dedicado:
+*   **Bases de Datos Documentales (MongoDB):** Al almacenar la información de las cartas y alineaciones en documentos JSON flexibles, MongoDB se integra de forma transparente con el stack de Node.js, facilitando la escalabilidad horizontal.
+*   **Bases de Datos Relacionales (PostgreSQL):** La adopción de PostgreSQL proporcionaría un modelo rígido altamente seguro mediante transacciones ACID, ideal para gestionar cuentas de usuario únicas, historiales de partidos, saldo de monedas virtuales y transacciones del mercado de fichajes con total consistencia a nivel empresarial.
 
 ### 5.2.2.- Multijugador Síncrono en Tiempo Real mediante WebSockets
 La ampliación a partidas multijugador aportaría un inmenso valor de entretenimiento. En lugar de simular exclusivamente partidos contra una inteligencia artificial oponente que genera plantillas estáticas:
