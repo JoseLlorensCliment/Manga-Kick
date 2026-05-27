@@ -78,7 +78,7 @@ function App() {
 
   // Auto-synchronize client states with backend users.json file on changes
   useEffect(() => {
-    if (currentUser && isRosterLoaded) {
+    if (currentUser && currentUser !== 'Invitado' && isRosterLoaded) {
       syncUserState({
         coins,
         ownedPlayers,
@@ -87,6 +87,7 @@ function App() {
       }).catch(err => console.error('Error synchronizing state with backend:', err));
     }
   }, [coins, ownedPlayers, formation, lineup, currentUser, isRosterLoaded]);
+
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -147,6 +148,19 @@ function App() {
     setAuthPassword('');
     setToast({ message: 'Sesión cerrada correctamente', type: 'success' });
   }, []);
+
+  // Guest Login Handler
+  const handleGuestLogin = useCallback(() => {
+    setActiveUsername(null);
+    setCoins(3000);
+    setOwnedPlayers([]);
+    setFormation('1-2-2');
+    setLineup(getFormationSlots('1-2-2'));
+    setCurrentUser('Invitado');
+    setIsRosterLoaded(true);
+    setToast({ message: '¡Entraste como Invitado! Tu progreso no se guardará de forma permanente.', type: 'success' });
+  }, []);
+
 
   // Recruit a player
   const handleRecruit = useCallback((player: Player) => {
@@ -300,6 +314,11 @@ function App() {
                   ? 'Iniciar Sesión'
                   : 'Registrar Cuenta'}
               </button>
+              {authMode === 'login' && (
+                <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={handleGuestLogin} disabled={authLoading}>
+                  Entrar como Invitado
+                </button>
+              )}
             </form>
 
             <button
