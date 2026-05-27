@@ -295,7 +295,7 @@ flowchart TD
 
     subgraph Capa_Datos ["CAPA DE PERSISTENCIA - DATOS"]
         C[("Caché en Memoria RAM<br>(Acceso en Microsegundos)")]
-        D[{"Archivo users.json (Local Host)<br>(Escritura Asíncrona a Disco)"}]
+        D[("Archivo users.json (Local Host)<br>(Escritura Asíncrona a Disco)")]
     end
 
     A <-->|"Peticiones HTTP (JSON)<br>Cabecera: x-username"| B
