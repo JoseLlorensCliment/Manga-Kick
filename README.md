@@ -1,12 +1,12 @@
-# ⚽ MangaKick — Simulador Táctico de Fútbol Híbrido (Anime & Real)
+# MangaKick — Simulador Táctico de Fútbol Híbrido (Anime & Real)
 
-¡Bienvenido a **MangaKick**! Una innovadora plataforma web híbrida diseñada para fusionar el rigor y la estrategia de los simuladores de gestión deportiva clásicos con la narrativa épica, el dinamismo visual y las habilidades fantásticas del universo del anime japonés.
+MangaKick es una plataforma web híbrida diseñada para fusionar el rigor y la estrategia de los simuladores de gestión deportiva clásicos con la narrativa épica, el dinamismo visual y las habilidades fantásticas del universo del anime japonés.
 
 Este proyecto ha sido desarrollado por **José Luis Llorens Climent** en el marco de su **Trabajo Fin de Grado (TFG)** para la **Universidad Miguel Hernández de Elche (UMH)**, presentado en **Mayo de 2026**.
 
 ---
 
-## 🌟 Características Principales
+## Características Principales
 
 *   **Plantilla Híbrida Única:** Ficha y alinea a las superestrellas de la élite real (como Lionel Messi, Cristiano Ronaldo, Erling Haaland) en simbiosis con personajes legendarios de tus series de animación preferidas (*Blue Lock*, *Inazuma Eleven*, *Captain Tsubasa*, *Dragon Ball*, *Naruto*).
 *   **Motor de Simulación Probabilístico (Match Engine):** Algoritmo avanzado en el servidor que computa confrontaciones tácticas minuto a minuto basándose en las estadísticas de velocidad, pase, regate, defensa y físico de los futbolistas.
@@ -19,7 +19,7 @@ Este proyecto ha sido desarrollado por **José Luis Llorens Climent** en el marc
 
 ---
 
-## 🛠️ Stack Tecnológico Premium
+## Stack Tecnológico Premium
 
 ### Capa de Presentación (Frontend)
 *   **React 19 & TypeScript:** Estructura modular basada en componentes altamente eficientes con tipado estricto.
@@ -38,7 +38,7 @@ Este proyecto ha sido desarrollado por **José Luis Llorens Climent** en el marc
 
 ---
 
-## 🚀 Cómo Levantar el Proyecto en Local
+## Cómo Levantar el Proyecto en Local
 
 Existen dos vías para ejecutar el proyecto en tu máquina de desarrollo. Antes de comenzar, clona el repositorio:
 
@@ -55,7 +55,7 @@ Esta opción levantará todo el entorno de producción (Frontend y Backend enlaz
     ```bash
     docker-compose up --build
     ```
-3.  ¡Listo! Accede a la aplicación web a través de tu navegador favorito en:
+3.  Accede a la aplicación web a través de tu navegador favorito en:
     *   **Frontend:** `http://localhost:5173`
     *   **Backend API REST:** `http://localhost:5000`
 
@@ -96,7 +96,7 @@ Si deseas modificar el código en caliente y ejecutar las herramientas nativas:
 
 ---
 
-## 📂 Documentación Académica (TFG)
+## Documentación Académica (TFG)
 
 Toda la memoria académica detallada del Trabajo Fin de Grado está redactada en castellano y se encuentra estructurada dentro de la carpeta `/documentacion/markdown/`:
 
@@ -112,7 +112,7 @@ Toda la memoria académica detallada del Trabajo Fin de Grado está redactada en
 
 ---
 
-## 👤 Autor
+## Autor
 
 *   **José Luis Llorens Climent**
 *   *Universidad Miguel Hernández de Elche (UMH)*
