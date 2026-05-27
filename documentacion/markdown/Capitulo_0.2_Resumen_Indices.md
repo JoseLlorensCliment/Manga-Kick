@@ -10,18 +10,6 @@ La solución de infraestructura se ha completado mediante la contenedorización 
 
 ---
 
-# ABSTRACT
-
-This Bachelor's Thesis presents the design, development, and implementation of **MangaKick**, an innovative hybrid web application that merges tactical football management with the anime universe and real-world elite footballers. The system allows users to act as technical directors of a custom team, enabling them to sign legendary real-world athletes (such as Lionel Messi, Cristiano Ronaldo, or Erling Haaland) alongside iconic characters from popular sports and fantasy anime series (such as *Blue Lock*, *Captain Tsubasa*, *Inazuma Eleven*, *Dragon Ball*, and *Naruto*).
-
-From a technological standpoint, the project is structured under a three-tier architecture utilizing the modern JavaScript/TypeScript stack. The frontend features an immersive, interactive, and visually premium user interface built with **React 19**, **Vite**, and **TypeScript**, relying on responsive **Vanilla CSS** to guarantee an optimal user experience across all devices. On the backend, a robust server has been developed using **Node.js** and the **Express** framework, implementing a REST API to manage core operations. These operations include a mathematical and probabilistic match simulation engine—factoring in players' individual stats and signature special abilities—a transfer market (*Draft Market*), and a player progression center (*Training Center*).
-
-The infrastructure solution is completed through containerization using **Docker** and **Docker Compose**, drastically simplifying environment deployment and guaranteeing absolute portability. The results demonstrate the technical viability of combining sports simulation algorithms with rich dynamic interfaces, delivering a highly visual and high-performance functional product that serves as an excellent practical demonstration of software engineering principles.
-
-**Keywords:** Tactical Simulator, Football, Anime, React 19, Node.js, TypeScript, REST API, Docker, Probabilistic Simulation.
-
----
-
 # AGRADECIMIENTOS
 
 Quiero expresar mi sincero agradecimiento a todas las personas que han hecho posible la realización de este Trabajo Fin de Grado.

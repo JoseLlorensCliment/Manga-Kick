@@ -59,8 +59,49 @@ El sistema define un único rol de usuario en esta fase:
 *   **RF-2: Mercado de Fichajes (*Draft Market*):** El sistema debe ofrecer una pantalla con 3 cartas aleatorias de jugadores disponibles para comprar. Cada jugador tendrá un coste monetario asociado a su rareza. El usuario partirá con un saldo virtual y podrá renovar la lista del mercado de forma aleatoria.
 *   **RF-3: Pizarra Táctica e Interfaz Táctica:** El usuario debe poder arrastrar o asignar exactamente 5 jugadores de su plantilla para conformar su alineación táctica activa, distribuidos bajo las posiciones clásicas: Portero (GK), Defensa (DEF), Centrocampista (MID) y Delantero (FWD). El sistema no permitirá partidos si la alineación no está completa.
 *   **RF-4: Simulador Probabilístico de Partidos:** El sistema debe permitir lanzar una simulación de 90 minutos de juego entre el equipo activo del usuario y un equipo oponente de IA equilibrado. El simulador procesará sucesos lógicos paso a paso (goles, tiros, paradas, faltas, lesiones, habilidades especiales) y mostrará una crónica en tiempo real en la pantalla. Al finalizar, mostrará el marcador final, estadísticas detalladas de posesión y tiros, y nombrará al "Jugador del Partido" (*Player of the Match*).
-*   **RF-5: Centro de Entrenamiento y Progresión:** El usuario podrá seleccionar cualquier jugador de su plantilla y someterlo a drills o entrenamientos específicos (como Carrera de Conos, Práctica de Disparo, Gimnasio, etc.). Cada drill consumirá un coste virtual de monedas y otorgará puntos de experiencia (XP) y boosts permanentes *   **RF-6: Reinicio de Progresión:** El sistema debe proveer una opción global para resetear el nivel y la experiencia de un jugador específico a su estado inicial.
-*   **RF-7: Registro y Autenticación de Cuentas de Mánager:** El sistema debe proveer un portal de acceso (Login/Registro) para salvaguardar el progreso de cada mánager. Al iniciar sesión, se cargan del servidor y se restauran en el cliente el saldo exacto de monedas, el plantel de futbolistas comprados y su nivel actual, y la disposición exacta de la pizarra táctica.
+*   **RF-5: Centro de Entrenamiento y Progresión:** El usuario podrá seleccionar cualquier jugador de su plantilla y someterlo a drills o entrenamientos específicos (como Carrera de Conos, Práctica de Disparo, Gimnasio, etc.). Cada drill consumirá un coste virtual de monedas y otorgará puntos de experiencia (XP) y boosts permanentes de atributos asociados (pace, shooting, passing, dribbling, defense, physical).
+*   **RF-6: Reinicio de Progresión:** El sistema debe ofrecer una opción para restablecer la experiencia (XP) y el nivel de un jugador específico a su estado inicial de nivel 1.
+*   **RF-7: Registro y Autenticación de Cuentas de Mánager:** El sistema debe ofrecer un portal de acceso (Login/Registro) con persistencia temporal. Al iniciar sesión, se cargan del servidor y se restauran en el cliente el saldo de monedas, el plantel de futbolistas comprados y su nivel actual, y la disposición exacta de la pizarra táctica.
+*   **RF-8: Acceso como Invitado (Guest Mode):** El sistema debe permitir ingresar y utilizar todas las funciones del simulador sin necesidad de registrarse. En este modo temporal, el progreso no se guardará de forma persistente en la base de datos del servidor, operando de forma aislada en la sesión del cliente.
+
+```mermaid
+flowchart LR
+    Manager(["Mánager / Director Técnico"])
+    
+    subgraph Sistema_MangaKick ["Sistema MangaKick"]
+        UC1["RF-1: Consultar Catálogo<br>(Filtro Anime/Real)"]
+        UC2["RF-2: Fichar Jugadores<br>(Draft Market)"]
+        UC3["RF-3: Configurar Pizarra Táctica<br>(Drag & Drop)"]
+        UC4["RF-4: Simular Partido Amistoso<br>(Log en Directo)"]
+        UC5["RF-5: Entrenar Atributos y Subir Nivel<br>(XP & Stats Boost)"]
+        UC6["RF-6: Resetear Progreso de Jugador"]
+        UC7["RF-7: Registro y Login de Cuentas"]
+        UC8["RF-8: Acceder como Invitado<br>(Modo Offline)"]
+    end
+
+    Manager --> UC1
+    Manager --> UC2
+    Manager --> UC3
+    Manager --> UC4
+    Manager --> UC5
+    Manager --> UC6
+    Manager --> UC7
+    Manager --> UC8
+
+    %% Estilos personalizados
+    style Manager fill:#0d2f4f,stroke:#00d4ff,stroke-width:2px,color:#fff
+    style UC1 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    style UC2 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    style UC3 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    style UC4 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    style UC5 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    style UC6 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    style UC7 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    style UC8 fill:#1e2235,stroke:#ffd700,stroke-width:1px,color:#fff
+    classDef sys fill:#0f111a,stroke:#5e6578,stroke-width:2px,color:#fff,font-weight:bold
+    class Sistema_MangaKick sys
+```
+
 
 ### 4.2.3.- Especificación de Caso de Uso Principal (Tabla 4.2)
 
@@ -99,33 +140,54 @@ La rareza de la carta influye directamente en el tope máximo de nivel del jugad
 *   *Rareza Legendary:* Nivel Máximo 20. Multiplicador de habilidad masivo.
 
 ### 4.3.2.- Diagrama de Secuencia de la Simulación del Partido (Figura 4.3)
-A continuación se ilustra textualmente el flujo de secuencia lógico y dinámico entre el Cliente (React), el Servidor (Express REST API) y el Motor Matemático:
+A continuación se ilustra el flujo de secuencia lógico y dinámico entre el Cliente (React), el Servidor (Express REST API) y el Motor Matemático:
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Manager as Mánager (Cliente React)
+    participant Server as Servidor (Express REST API)
+    participant Engine as Motor de Simulación (Match Engine)
+
+    Manager->>Server: POST /api/match/simulate (homeTeam, awayTeam)
+    activate Server
+    Server->>Server: Validar alineación y GK (Exactamente 5 jugadores)
+    Server->>Engine: Inicializar simulación con plantillas
+    activate Engine
+    Note over Engine: Calcular posesión base por pases y regates
+    loop Minutos (salto dinámico 7'-13' de 5' a 90')
+        Note over Engine: Determinar equipo atacante (probabilidad de posesión)
+        Engine->>Engine: Sorteo de atacante y defensor aleatorios
+        Note over Engine: Probabilidad de Habilidad Especial (Special Ability)
+        opt Activa habilidad especial
+            Engine->>Engine: Aplicar boost estadísticas temporal (_boosted)
+        end
+        Note over Engine: Probabilidad de disparo (ShotChance)
+        opt Disparo ejecutado
+            Note over Engine: Probabilidad de tiro a puerta (Shooting Accuracy)
+            opt Va a puerta
+                Note over Engine: Probabilidad de atajada GK (SaveChance)
+                alt Portero ataja
+                    Note over Engine: Añadir crónica de Parada
+                else Gol anotado
+                    Note over Engine: Incrementar marcador y añadir crónica de Gol
+                end
+            end
+        end
+        opt Probabilidad de lesión (3%)
+            Note over Engine: Añadir golpe / cambio forzado
+        end
+    end
+    Engine->>Engine: Calcular estadísticas finales y Player of the Match (POTM)
+    Engine-->>Server: Retornar resultado estructurado (Score, Events, Stats, POTM)
+    deactivate Engine
+    Server-->>Manager: JSON con crónica de partido y estadísticas
+    deactivate Server
+    activate Manager
+    Note over Manager: Reproducir sucesos minuto a minuto en pantalla
+    deactivate Manager
 ```
-+---------------+              +---------------+             +------------------+
-| React Client  |              |  Express API  |             | Simulation Engine|
-+-------+-------+              +-------+-------+             +--------+---------+
-        |                              |                              |
-        |  1. POST /match/simulate     |                              |
-        |=============================>|                              |
-        |  (enviando home/away squads) |  2. Validar estructura arrays |
-        |                              |----------------------------->|
-        |                              |                              |  3. Inicializar marcador
-        |                              |                              |     y cronograma de minutos
-        |                              |                              |  4. Calcular posesión base
-        |                              |                              |  5. Bucle de minutos (5' a 90')
-        |                              |                              |     a) Seleccionar atacante/defensor
-        |                              |                              |     b) Trigger de Habilidad Especial
-        |                              |                              |     c) Determinar Disparo y Parada GK
-        |                              |                              |     d) Registrar evento de crónica
-        |                              |  6. Devolver objeto completo |  6. Computar stats y POTM
-        |                              |<-----------------------------|
-        |  7. Recibir JSON de resultado|                              |
-        |<=============================|                              |
-        |  8. Renderizar crónica       |                              |
-        |     minuto a minuto en directo|                              |
-        v                              v                              v
-```
+
 
 ---
 

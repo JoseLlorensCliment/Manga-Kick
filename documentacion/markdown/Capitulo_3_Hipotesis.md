@@ -12,25 +12,32 @@ Para dar soporte a las necesidades de MangaKick, se ha optado por un **patrón d
 2.  **Capa de Negocio (Servidor/Backend):** Una API RESTful ligera que procesa las solicitudes lógicas del cliente, calcula los algoritmos matemáticos complejos de la simulación deportiva, gestiona las transacciones de compra/venta de jugadores en el draft y computa el progreso de experiencia del entrenamiento.
 3.  **Capa de Datos y Persistencia:** Un motor de base de datos relacional y de objetos estructurado directamente en la memoria caché de la capa de negocio, diseñado para proporcionar tiempos de acceso ultra-bajos sin penalizaciones por latencia de red.
 
-```
-       +-------------------------------------------------+
-       |             CAPA DE PRESENTACIÓN                |
-       |  React 19 + TypeScript + Vanilla CSS (Vite)     |
-       +------------------------+------------------------+
-                                |
-                   Solicitudes HTTP / Respuestas JSON
-                                |
-       +------------------------v------------------------+
-       |               CAPA DE NEGOCIO                   |
-       |       Node.js + Express REST API                |
-       +------------------------+------------------------+
-                                |
-                 Lectura / Escritura Síncrona
-                                |
-       +------------------------v------------------------+
-       |             CAPA DE PERSISTENCIA                |
-       |       Base de Datos en Memoria (JS Cache)       |
-       +-------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph Capa_Cliente ["CAPA DE PRESENTACIÓN - CLIENTE"]
+        A["React 19 SPA (Vite)<br>• TypeScript & Vanilla CSS<br>• LocalStorage Auto-Login<br>• Hook Reactivo Auto-Sync"]
+    end
+
+    subgraph Capa_Servidor ["CAPA DE NEGOCIO - SERVIDOR"]
+        B["Servidor Express REST API (Node.js)<br>• routes/users.js (Auth & Sync)<br>• routes/training.js (User-Aware)<br>• routes/simulator.js (Math Match Engine)"]
+    end
+
+    subgraph Capa_Datos ["CAPA DE PERSISTENCIA - DATOS"]
+        C[("Caché en Memoria RAM<br>(Acceso en Microsegundos)")]
+        D[{"Archivo users.json (Local Host)<br>(Escritura Asíncrona a Disco)"}]
+    end
+
+    A <-->|"Peticiones HTTP (JSON)<br>Cabecera: x-username"| B
+    B <-->|"Lectura/Escritura síncrona en RAM"| C
+    B -->|"Persistencia física asíncrona"| D
+
+    %% Estilos personalizados
+    style A fill:#0d2f4f,stroke:#00d4ff,stroke-width:2px,color:#fff
+    style B fill:#1c0f30,stroke:#b24dff,stroke-width:2px,color:#fff
+    style C fill:#0f3a1a,stroke:#39ff14,stroke-width:2px,color:#fff
+    style D fill:#2a1b00,stroke:#ffd700,stroke-width:2px,color:#fff
+    classDef subgraphTitle fill:#181b28,stroke:#5e6578,stroke-width:1px,color:#eef0f6,font-weight:bold
+    class Capa_Cliente,Capa_Servidor,Capa_Datos subgraphTitle
 ```
 
 El desacoplamiento completo de la capa de presentación respecto a la lógica de negocio aporta múltiples ventajas académicas y profesionales:
