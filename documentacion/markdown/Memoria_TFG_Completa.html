@@ -77,13 +77,15 @@
       background: transparent;
       border: none;
       text-align: center;
-      margin: 2em 0;
+      margin: 1.5em 0;
       width: 100% !important;
       display: block !important;
+      page-break-before: always !important; /* Forzar que cada diagrama empiece en una página nueva limpia */
+      page-break-inside: avoid !important;  /* Evitar cortes dentro del diagrama */
       }
       pre.mermaid svg {
-      width: 95% !important;
-      max-width: 95% !important;
+      width: 80% !important;
+      max-width: 80% !important;
       height: auto !important;
       margin: 0 auto !important;
       display: block !important;
